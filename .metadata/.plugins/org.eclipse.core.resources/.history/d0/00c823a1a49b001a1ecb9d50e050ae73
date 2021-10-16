@@ -1,0 +1,741 @@
+import java.awt.Font;
+import java.io.FileNotFoundException;
+import java.net.URL;
+
+import javax.media.j3d.Alpha;
+import javax.media.j3d.AmbientLight;
+import javax.media.j3d.Appearance;
+import javax.media.j3d.Background;
+import javax.media.j3d.BoundingSphere;
+import javax.media.j3d.BranchGroup;
+import javax.media.j3d.DirectionalLight;
+import javax.media.j3d.Font3D;
+import javax.media.j3d.FontExtrusion;
+import javax.media.j3d.Material;
+import javax.media.j3d.RotationInterpolator;
+import javax.media.j3d.Shape3D;
+import javax.media.j3d.Text3D;
+import javax.media.j3d.Transform3D;
+import javax.media.j3d.TransformGroup;
+import javax.vecmath.AxisAngle4f;
+import javax.vecmath.Color3f;
+import javax.vecmath.Matrix3d;
+import javax.vecmath.Point3d;
+import javax.vecmath.Point3f;
+import javax.vecmath.Vector3d;
+import javax.vecmath.Vector3f;
+
+import com.sun.j3d.loaders.IncorrectFormatException;
+import com.sun.j3d.loaders.ParsingErrorException;
+import com.sun.j3d.loaders.Scene;
+import com.sun.j3d.loaders.objectfile.ObjectFile;
+import com.sun.j3d.utils.behaviors.mouse.MouseRotate;
+import com.sun.j3d.utils.geometry.ColorCube;
+/*
+ * clase Letra en esta clase se encargara de la creacion de animaciones de los cero y un as u bes 
+ * la animacion de los mensajes dee cubos*/
+public  class Letra implements Runnable {
+	
+	private String palabra="";//Cadena para mostrar de forma grafica
+	private Thread animacion = new Thread(this);//hebra
+	
+	//cordenadas iniciales de el acto 0 los demas actos dependeran de que acto se trata
+	private double ax= 0.5f;
+	private double ay= -0.54f;
+	private double az= -0.5f;	
+	private Vector3d tras =new Vector3d(ax,ay,az);//vector inicial del acto 0
+	private BranchGroup obj = new BranchGroup();//el objeto a retornar
+	private  TransformGroup obtrns = new TransformGroup();	//grupo de transformaciones
+	private Transform3D a3dTrans = new Transform3D(); 	//transformaciones en 3D
+	private  TransformGroup obtrns2 = new TransformGroup();	//grupo de transformaciones
+	private Transform3D a3dTrans2 = new Transform3D(); 	//transformaciones en 3D
+	private int acto;//determina que animacion tendra que realizar	
+	private int avance;//auxiliar que se usara en la hebra
+	private boolean noTriangulate = false;//Variable de inisializacion de obj
+	private boolean noStripify = false;//Variable de inisializacion de obj
+	private double creaseAngle = 60.0;//Variable de inisializacion de obj
+	private URL filename = null;//Variable de inisializacion de obj
+	private int anima=0;//Variable de animacion
+	private int delay=5;//Variable de delay para designar un retardo
+	private int acabe=0;//variable contador para retardar para designar animaciones
+	private double x0,z0;//varibales de coordenadas
+	private String dir;//cadena para identificar que tipo de direccion correponde a su animacion
+	
+    //Constructor de clase
+	public Letra()
+	{
+		
+	}
+	
+	//Metodo set para establecer una cadena grafica
+	public void setpalabra(String pal)
+	{
+		this.palabra=pal;
+	}
+	
+	//Este metodo es llamado para saber que tipo de grafico tiene que ser cargado al mundo grafico
+	public void asigpal(int dire)
+	{
+		switch(dire)
+		{
+		case 0:	
+			dir="cerov";
+		break;
+		case 1:	
+			dir="unov";
+			break;
+		case 2:	
+			dir="ceror";
+			break;
+		case 3:	
+			dir="unor";
+			break;
+		case 4:	
+			dir="cube";
+			break;
+		
+		}
+	}
+	  
+	  /*
+	   * clase create se eliminara despues de que se agregue color a las letras 
+	   * tiene codigo que puede ayudar
+	   * */
+	public void createSceneGraph() {
+		
+	TransformGroup objRot = new TransformGroup();
+	objRot.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+	    
+    Font3D f3d = new Font3D(new Font("dialog", Font.PLAIN, 1),
+			     new FontExtrusion());
+	    Text3D text = new Text3D(f3d, palabra,
+			     new Point3f( 0f, -0.f, 0f));
+
+	Shape3D sh = new Shape3D();
+	Appearance app = new Appearance();
+	Material mm = new Material();
+	mm.setLightingEnable(true);
+	app.setMaterial(mm);
+	sh.setGeometry(text);
+	sh.setAppearance(app);
+
+    objRot.addChild( sh );
+
+    BoundingSphere bounds = new BoundingSphere(new Point3d(0.0, 0.0, 0.0),
+	            100.0);
+	    
+	// Set up the ambient light
+	Color3f ambientColor = new Color3f(0.3f, 0.3f, 0.3f);
+	AmbientLight ambientLightNode = new AmbientLight(ambientColor);
+	ambientLightNode.setInfluencingBounds(bounds);
+	//objRoot.addChild(ambientLightNode);
+
+	// Set up the directional lights
+	Color3f light1Color = new Color3f(1.0f, 0.0f, 0.0f);
+	Vector3f light1Direction  = new Vector3f(1.0f, 1.0f, 1.0f);
+	Color3f light2Color = new Color3f(1.0f, 0.0f, 0.0f);
+	Vector3f light2Direction  = new Vector3f(-1.0f, -1.0f, -1.0f);
+
+	DirectionalLight light1
+	    = new DirectionalLight(light1Color, light1Direction);
+	light1.setInfluencingBounds(bounds);
+	//objRoot.addChild(light1);
+
+	DirectionalLight light2
+	    = new DirectionalLight(light2Color, light2Direction);
+	light2.setInfluencingBounds(bounds);
+	
+		//	objRoot.compile();
+	 //   return objRoot;
+	}
+	 /*
+	  * clase animacion1
+	  * 
+	  * en esta clase se hace la animacion de cero y unos desde el que crea el mensaje
+	  * */
+	  public BranchGroup animacion1() {
+		
+		obtrns.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+	//	inicia();
+		tras = new Vector3d(ax,ay,az);
+		
+	     	a3dTrans.setTranslation(tras);
+		   // System.err.println(a3dTrans);
+		    Vector3d op = new Vector3d(.1,.1,.1);
+		    a3dTrans.setScale(op);	
+		    obtrns.setTransform(a3dTrans);
+		
+		Font3D f3d = new Font3D(new Font("dialog", Font.PLAIN, 1),
+			     new FontExtrusion());
+	    Text3D text = new Text3D(f3d, palabra,
+			     new Point3f( 0f, -0.f, 0f));
+
+	    Shape3D sh = new Shape3D();
+	Appearance app = new Appearance();
+	Material mm = new Material();
+	mm.setLightingEnable(true);
+	app.setMaterial(mm);
+	sh.setGeometry(text);
+	sh.setAppearance(app);
+
+	obtrns.addChild( sh );
+		obj.addChild(obtrns);
+	//	acto =0; //iniciar acto en 0
+		//avance=0;//miscmo caso
+		return obj;
+	}
+
+	  public BranchGroup animacionLEtra() {
+			
+		obtrns.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+	//	inicia();
+		tras = new Vector3d(ax,ay,2);
+		
+	     	a3dTrans.setTranslation(tras);
+		   // System.err.println(a3dTrans);
+		    Vector3d op = new Vector3d(.1,.1,.1);
+		    a3dTrans.setScale(op);	
+		    obtrns.setTransform(a3dTrans);
+		
+		    int flags = ObjectFile.RESIZE;
+			if (!noTriangulate) flags |= ObjectFile.TRIANGULATE;
+			if (!noStripify) flags |= ObjectFile.STRIPIFY;
+			ObjectFile f = new ObjectFile(flags, 
+			  (float)(creaseAngle * Math.PI / 180.0));
+			Scene s = null;
+			try {
+			  s = f.load(filename);
+			}
+			catch (FileNotFoundException e) {
+			  System.err.println(e);
+			  System.exit(1);
+			}
+			catch (ParsingErrorException e) {
+			  System.err.println(e);
+			  System.exit(1);
+			}
+			catch (IncorrectFormatException e) {
+			  System.err.println(e);
+			  System.exit(1);
+			}
+			  
+			obtrns.addChild(s.getSceneGroup());
+		obj.addChild(obtrns);
+	//	acto =0; //iniciar acto en 0
+		//avance=0;//miscmo caso
+		return obj;
+	}
+		
+	  public void inici() {
+	        if (filename == null) {
+	        	//System.err.println(Resources.getResource("./modelo/cube.obj"));
+	       	 filename = Resources.getResource("./modelo/"+dir+".obj");
+	           if (filename == null) {
+	               System.err.println("modelo/"+dir+".obj not founds");
+	               System.exit(1);
+	           }
+		}
+		}	
+	  
+			
+		 public  BranchGroup cubo1(){
+
+		    	obtrns2.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+		    	inicia();
+				tras = new Vector3d(ax,ay,az);
+				a3dTrans2.rotY(-Math.PI/1.80d);
+			     	a3dTrans2.setTranslation(tras);
+				    System.err.println(a3dTrans);
+				    Vector3d op = new Vector3d(.1,.1,.1);
+				    a3dTrans2.setScale(op);	
+				    obtrns2.setTransform(a3dTrans2);
+
+			// Create the transform group node and initialize it to the
+			// identity.  Enable the TRANSFORM_WRITE capability so that
+			// our behavior code can modify it at runtime.  Add it to the
+			// root of the subgraph.
+
+			int flags = ObjectFile.RESIZE;
+			if (!noTriangulate) flags |= ObjectFile.TRIANGULATE;
+			if (!noStripify) flags |= ObjectFile.STRIPIFY;
+			ObjectFile f = new ObjectFile(flags, 
+			  (float)(creaseAngle * Math.PI / 180.0));
+			Scene s = null;
+			try {
+			  s = f.load(filename);
+			}
+			catch (FileNotFoundException e) {
+			  System.err.println(e);
+			  System.exit(1);
+			}
+			catch (ParsingErrorException e) {
+			  System.err.println(e);
+			  System.exit(1);
+			}
+			catch (IncorrectFormatException e) {
+			  System.err.println(e);
+			  System.exit(1);
+			}
+			  
+			obtrns2.addChild(s.getSceneGroup());
+			obj.addChild(obtrns2);
+			return obj;
+			 
+		 }
+
+	
+    BranchGroup group = new BranchGroup();
+    ColorCube cube = new ColorCube(0.3);
+    TransformGroup GT = new TransformGroup();
+    Transform3D transform = new Transform3D();
+    double Y = 0;
+    Thread hilo1 = new Thread(this); //Se declara el hilo
+    
+    public void setcord(int cord)
+    {
+    	int x=7;
+    	switch(cord)
+    	{
+    	case 0://cordenada inicial letra verde
+    		 ax= 0.5f;
+    		 ay= -0.50f;
+    		 az= -0.5f;	
+    			anima=0;
+    			acto=0;
+    			delay=6;
+    			 acabe=0;
+    			 avance=0;
+    		break;
+    	case 1://cordenada cubo 1(-.70,.-50,-.65)
+   		 ax=-.70f;
+   		 ay= -0.6f;
+   		 az= -0.65f;	
+   		anima=1;
+   		acto=0;
+   		delay=20;
+   	 acabe=0;
+   	avance=0;
+    		break;
+    	case 2:
+      		 ax=-.90f;
+       		 ay= -0.5f;
+       		 az= -0.95f;	
+       		anima=1;
+       		this.acto= 0;
+       		delay=6;
+       	 acabe=0;
+       	 avance=0;
+     //	System.out.print(acto);
+    		break;
+    		
+    	case 3://cordenada cubo 1(-.70,.-50,-.65)
+      		 ax=-.65f;
+      		 ay= -0.6f;
+      		 az= -0.95f;	
+      		anima=1;
+      		acto=0;
+      		delay=20;
+      	 acabe=0;
+      	avance=0;
+       		break;
+    	}
+    }
+    public void inicia(){
+    	animacion.start();
+    }
+    public void deten(){
+    	animacion.stop();
+    }
+    public void setcero(double x,double z){
+    	this.x0=x;
+    	this.z0=z;
+    }
+    public void setceroini(double x,double z){
+    	this.ix0=x;
+    	this.iz0=z;
+    }
+    /*
+     * clase creac 
+     * esta clase sirve para entender como agregar trasnformaciones a un cubo y
+     * al final comprender el uso de hebras
+     * en otras clases se vera mas implementaciones de transformaciones
+     * 
+     * */
+	
+public BranchGroup creac() {
+	
+        GT.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE); //se setea el grupo de transformación
+        // como un elemento modificable en tiempo de ejecución
+        hilo1.start(); //se inicia el hilo
+
+        GT.setTransform(transform);
+
+        GT.addChild(cube);
+
+        group.addChild(GT);
+		
+		return group;
+	}
+	
+	
+	public int acab()
+	{
+		return this.acabe;
+	}
+/*/este metodo es abstracto contenido en implements sirve
+	 *  para hacer el uso de hebras dentro de una clase instanciada
+	 *  aqui se haran las animaciones de letras
+	 *  
+	 *  25/04/2020
+	 *  esta es la primera clase que se implementa hebras para hacer animaciones
+	 *  incluye un ejemplo para crear un colorcube 
+	 *  NOTA: cabe mencionar que al hacer rotaciones se tendra que aplicar nuevamente
+	 *  la esclacion y la traslacion sino la matrises cambiaran
+	 *  
+	 *  tambien para hacer uso de esta animacion se usaran variables auxiliares en 
+	 *  condicionales para que haga su debida animacion 
+	 *  
+	 *  falta agregar colores
+	 */
+	@Override
+	public void run() {
+		Thread ct = Thread.currentThread();  
+
+	//	Y=Math.PI/2.0d;
+        while (ct == animacion) {
+            try {
+    ////// ejemplo rotacion de un cubo
+            	
+            	 Y = Y + 0.09; //Variable global declarada como double
+Vector3d op = new Vector3d(.02,.02,.02);
+                 transform.rotY(Y); //Se rota en base al eje Y
+                 GT.setTransform(transform); //Se actualiza el gráfico
+                 if(anima==0)
+                 {       //  	 System.out.print(acto);
+             		
+                	 switch(acto)
+                 {
+                 case 0:
+                 a3dTrans.rotY(Y);
+                 az += 0.0025;
+                 tras = new Vector3d(ax,ay,az);
+                 a3dTrans.setTranslation(tras);
+
+
+    		    a3dTrans.setScale(op);	
+         		obtrns.setTransform(a3dTrans);
+         		avance++; 
+            //    	 System.out.print(avance);
+                	 
+                	 if(avance==120)
+                	 {
+                		 acto++;
+                		 avance=0;
+                	 }
+                	 break;
+                 case 1:
+                	  a3dTrans.rotY(Y);
+                      ay -= 0.0025;
+                      tras = new Vector3d(ax,ay,az);
+                      a3dTrans.setTranslation(tras);
+
+
+         		    a3dTrans.setScale(op);	
+              		obtrns.setTransform(a3dTrans);
+              		avance++; 
+              // 	 System.out.print(avance);
+            	 
+               	 if(avance==40)
+               	 {
+               		 acto++;
+               		 avance=0;
+               	 }
+                	 
+                	 break;
+
+                 case 2:
+               	  a3dTrans.rotY(Y);
+                  ax -= 0.0025;
+                  az -= 0.0005;
+                  tras = new Vector3d(ax,ay,az);
+                  a3dTrans.setTranslation(tras);
+
+
+     		    a3dTrans.setScale(op);	
+          		obtrns.setTransform(a3dTrans);
+          		avance++; 
+        //   	 System.out.print(avance);
+        	 
+           	 if(avance==120)
+           	 {
+           		 acto++;
+           		 avance=0;
+           	 }
+                	 break;
+                 case 3:
+                  	  a3dTrans.rotY(Y);
+                      az -= 0.0025;
+                      tras = new Vector3d(ax,ay,az);
+                      a3dTrans.setTranslation(tras);
+
+
+         		    a3dTrans.setScale(op);	
+              		obtrns.setTransform(a3dTrans);
+              		avance++; 
+          //     	 System.out.print(avance);
+            	 
+               	 if(avance==80)
+               	 {
+               		 acto++;
+               		 avance=0;
+               	 }
+                	 break;
+                 case 4:
+                 	  a3dTrans.rotY(Y);
+                      ax -= 0.0025;
+                      az -= 0.0005;
+                      tras = new Vector3d(ax,ay,az);
+                      a3dTrans.setTranslation(tras);
+
+
+          		    a3dTrans.setScale(op);	
+               		obtrns.setTransform(a3dTrans);
+               		avance++; 
+            //    	 System.out.print(avance);
+             	 
+                	 if(avance==90)
+                	 {
+                		 acto++;
+                		 avance=0;
+                	 }
+                	 
+                	 
+                	 break;
+                 case 5:
+                	 
+                	  a3dTrans.rotY(Y);
+                      ay += 0.0025;
+                      tras = new Vector3d(ax,ay,az);
+                      a3dTrans.setTranslation(tras);
+
+
+          		    a3dTrans.setScale(op);	
+               		obtrns.setTransform(a3dTrans);
+               		avance++; 
+              //  	 System.out.print(avance);
+             	 
+                	 if(avance==80)
+                	 {
+                		 acto++;
+                		 avance=0;
+                	 }
+                	 
+                	 break;
+                 case 6:
+                  	 a3dTrans.rotY(Y);
+                     ax += 0.0005;
+                     az -= 0.0025;
+                     tras = new Vector3d(ax,ay,az);
+                     a3dTrans.setTranslation(tras);
+
+
+         		    a3dTrans.setScale(op);	
+              		obtrns.setTransform(a3dTrans);
+              		avance++; 
+               	// System.out.print(avance);
+            	 
+           		System.out.print((int)z0);
+               	 switch((int)z0)
+               	 {
+               	 case 0:
+               acto++; 
+          	 avance=0;
+               		 break;
+               	 case 1:
+                   	 if(avance==90)
+                   	 {
+        
+                   		 acto++;   
+                   		 avance=0;
+
+                   	 }
+               		 break;
+               	 case 2:
+               		 if(avance==190)
+                   	 {
+        
+                   		 acto++;   
+                   		 avance=0;
+
+                   	 }
+               		 break;
+               	 case 3:
+               		 if(avance==280)
+                   	 {
+        
+                   	 acto++;   
+                	 avance=0;
+                   	 }
+               		 break;
+               		 
+               	 }
+               	 
+                   	 break;
+                 case 7:
+                  	  a3dTrans.rotY(Y);
+                     ax -= 0.0025;
+                     az -= 0.0005;
+                     tras = new Vector3d(ax,ay,az);
+                     a3dTrans.setTranslation(tras);
+
+
+         		    a3dTrans.setScale(op);	
+              		obtrns.setTransform(a3dTrans);
+              		avance++; 
+               	// System.out.print(avance);
+            	 
+              		switch((int)x0)
+                  	 {
+                  	 case 0:
+                  		 if(avance==360)
+                      	 {
+           
+                      	 acto++;   
+                      	 avance=0;
+
+                      	 }
+     
+               
+                  		 break;
+                  	 case 1:
+                      	 if(avance==260)
+                      	 {
+           
+                      		 acto++;   
+                          	 avance=0;
+
+
+                      	 }
+                  		 break;
+                  	 case 2:
+                  		 if(avance==160)
+                      	 {
+           
+                      		 acto++;   
+                          	 avance=0;
+
+
+                      	 }
+                  		 break;
+                  	 case 3:
+                  		 if(avance==55)
+                      	 {
+           
+                      	 acto++;  
+                      	 avance=0;
+                     // 	animacion.stop();
+                      	 }
+                  		 break;
+                  		 
+                  	 }
+               	 
+                   	 break;
+                 case 8:
+
+               	  a3dTrans.rotY(Y);
+                  ay -= 0.0025;
+                  tras = new Vector3d(ax,ay,az);
+                  a3dTrans.setTranslation(tras);
+
+
+      		    a3dTrans.setScale(op);	
+           		obtrns.setTransform(a3dTrans);
+           		avance++; 
+          //  	 System.out.print(avance);
+         	 
+            	 if(avance==80)
+            	 {
+            		 acto++;
+            		 acabe=1;
+            		//animacion.stop();
+            	 }
+                	 break;
+                 
+                 }
+            }
+                 else//animaciones de cubo
+                 {
+              		
+                	 switch(acto)
+                 {
+                 case 0:
+                	  a3dTrans.rotY(Y);
+                      ay += 0.0025;
+                      tras = new Vector3d(ax,ay,az);
+                      a3dTrans.setTranslation(tras);
+
+
+          		    a3dTrans.setScale(op);	
+               		obtrns.setTransform(a3dTrans);
+               		avance++; 
+              //  	 System.out.print(avance);
+             	 
+                	 if(avance==80)
+                	 {
+                		 acto++;
+                		 avance=0;
+                	 }
+                	 
+                	 break;
+                 case 1:
+               	  a3dTrans.rotY(Y);
+                     az += 0.0025;
+                     tras = new Vector3d(ax,ay,az);
+                     a3dTrans.setTranslation(tras);
+
+
+         		    a3dTrans.setScale(op);	
+              		obtrns.setTransform(a3dTrans);
+              		avance++; 
+             //  	 System.out.print(avance);
+            	 
+               	 if(avance==70)
+               	 {
+               		 acto++;
+               		 avance=0;
+               	 }
+               	 
+               	 break;
+                 case 2:
+                  	  a3dTrans.rotY(Y);
+                        ay -= 0.0025;
+                        tras = new Vector3d(ax,ay,az);
+                        a3dTrans.setTranslation(tras);
+
+
+            		    a3dTrans.setScale(op);	
+                 		obtrns.setTransform(a3dTrans);
+                 		avance++; 
+                //  	 System.out.print(avance);
+               	 
+                  	 if(avance==80)
+                  	 {
+                  		 acto++;
+                  		 avance=0;
+                  		 acabe=1;
+                  	 }
+                  	 
+                  	 break;
+                 }
+                	 }
+
+                Thread.sleep(delay); //Se espera un tiempo antes de seguir la ejecución
+            } catch (InterruptedException ex) {
+                //Logger.getLogger(Cube3D.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+		
+	}
+
+}
